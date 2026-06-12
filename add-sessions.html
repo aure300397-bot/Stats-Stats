@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import séances — Stats Stats</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 620px; margin: 40px auto; padding: 20px; color: #1e1b4b; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    p { color: #555; font-size: 0.95rem; }
+    .warn { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 0.9rem; }
+    button { background: #6366f1; color: #fff; border: none; padding: 12px 28px; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 8px; }
+    button:hover { background: #4f46e5; }
+    button:disabled { background: #a5b4fc; cursor: default; }
+    #log { margin-top: 20px; padding: 16px; background: #f0fdf4; border-radius: 8px; border: 1px solid #86efac; display: none; font-size: 0.9rem; }
+    #log.error { background: #fef2f2; border-color: #fca5a5; }
+    #log h2 { margin: 0 0 8px; font-size: 1rem; }
+    ul { margin: 6px 0 12px; padding-left: 20px; }
+    li { margin: 3px 0; }
+  </style>
+</head>
+<body>
+  <h1>Import séances — Stats Stats</h1>
+  <p>Ajoute <strong>15 séances</strong> (2 mai → 10 juin 2026) dans l'application sans effacer les données existantes.</p>
+  <div class="warn">⚠ Ouvrez cette page dans le <strong>même navigateur</strong> que l'app Stats Stats (même appareil, même profil).</div>
+  <button id="btn" onclick="run()">Importer les séances</button>
+  <div id="log"></div>
+
+<script>
+const DB_KEY = 'statsstats.db.v1';
+
+const SESSIONS = [
+  /* ── 2 mai 2026 — Upper A ─────────────────────────────────────── */
+  {
+    id: 'imp-0502ua', date: '2026-05-02', templateId: 'tpl-ua',
+    name: 'Upper A — Push lourd', saved: true,
+    entries: [
+      { name: 'Développé couché barre', target: null,
+        sets: [{weight:70,reps:null},{weight:75,reps:null},{weight:80,reps:null},{weight:85,reps:null}] },
+      { name: 'Rowing barre buste penché', target: null,
+        sets: [{weight:50,reps:null},{weight:50,reps:null},{weight:60,reps:null},{weight:60,reps:null}] },
+      { name: 'Développé militaire haltères', target: null,
+        sets: [{weight:24,reps:4},{weight:26,reps:4},{weight:28,reps:4},{weight:30,reps:4}] },
+      { name: 'Tirage vertical poulie', target: null,
+        sets: [{weight:52,reps:null},{weight:52,reps:null},{weight:45,reps:null}] },
+      { name: 'Élévations latérales', target: null,
+        sets: [{weight:12,reps:null}] },
+      { name: 'Curl haltères banc incliné', target: null,
+        sets: [{weight:10,reps:null}] },
+      { name: 'Triceps poulie haute (corde)', target: null,
+        sets: [{weight:24.9,reps:null}] },
+    ]
+  },
+
+  /* ── 3 mai 2026 — Lower A ─────────────────────────────────────── */
+  {
+    id: 'imp-0503la', date: '2026-05-03', templateId: 'tpl-la',
+    name: 'Lower A — Squat', saved: true,
+    entries: [
+      { name: 'Squat barre', target: null,
+        sets: [{weight:60,reps:null},{weight:90,reps:null},{weight:90,reps:null},{weight:90,reps:null}] },
+      { name: 'RDL (soulevé roumain)', target: null,
+        sets: [{weight:40,reps:null},{weight:40,reps:null},{weight:40,reps:null}] },
+      { name: 'Leg curl machine (ischios)', target: null,
+        sets: [{weight:70,reps:null},{weight:70,reps:null},{weight:70,reps:null}] },
+      { name: 'Presse à cuisses', target: null,
+        sets: [{weight:126,reps:null},{weight:126,reps:null},{weight:126,reps:null}] },
+      { name: 'Mollets assis', target: null,
+        sets: [{weight:30,reps:null},{weight:30,reps:null},{weight:30,reps:null},{weight:30,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:10,reps:null},{weight:17,reps:null},{weight:17,reps:null},{weight:14.7,reps:null}] },
+    ]
+  },
+
+  /* ── 5 mai 2026 — Upper B ─────────────────────────────────────── */
+  {
+    id: 'imp-0505ub', date: '2026-05-05', templateId: 'tpl-ub',
+    name: 'Upper B — Pull lourd', saved: true,
+    entries: [
+      { name: 'Tractions ou tirage vertical lesté', target: null,
+        sets: [{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6}] },
+      { name: 'Développé incliné haltères', target: null,
+        sets: [{weight:28,reps:10},{weight:30,reps:8},{weight:30,reps:8},{weight:30,reps:8}] },
+      { name: 'Tirage horizontal serré', target: null,
+        sets: [{weight:50,reps:null},{weight:57,reps:null},{weight:57,reps:null}] },
+      { name: 'Pec fly machine ou écarté poulie', target: null,
+        sets: [{weight:63,reps:null},{weight:63,reps:null},{weight:63,reps:null}] },
+      { name: 'Dips lestés', target: null,
+        sets: [{weight:0,reps:10},{weight:0,reps:10},{weight:0,reps:10}] },
+      { name: 'Curl barre EZ debout', target: null,
+        sets: [{weight:25,reps:null},{weight:25,reps:null},{weight:25,reps:null}] },
+      { name: 'Curl marteau haltères', target: null,
+        sets: [{weight:18,reps:null},{weight:18,reps:null}] },
+    ]
+  },
+
+  /* ── 6 mai 2026 — Lower B ─────────────────────────────────────── */
+  {
+    id: 'imp-0506lb', date: '2026-05-06', templateId: 'tpl-lb',
+    name: 'Lower B — Hip hinge', saved: true,
+    entries: [
+      { name: 'Soulevé de terre conventionnel', target: null,
+        sets: [{weight:60,reps:null},{weight:80,reps:null},{weight:90,reps:null},{weight:100,reps:null}] },
+      { name: 'Hack squat ou fentes haltères', target: null,
+        sets: [{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null}] },
+      { name: 'Hip thrust barre', target: null,
+        sets: [{weight:10,reps:null},{weight:20,reps:null},{weight:20,reps:null}] },
+      { name: 'Leg extension (quads)', target: null,
+        sets: [{weight:84,reps:null},{weight:84,reps:null},{weight:84,reps:null}] },
+      { name: 'Mollets debout', target: null,
+        sets: [{weight:35,reps:null},{weight:35,reps:null},{weight:35,reps:null},{weight:35,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:17,reps:null},{weight:17,reps:null},{weight:17,reps:null},{weight:14,reps:null}] },
+    ]
+  },
+
+  /* ── 9 mai 2026 — Upper A ─────────────────────────────────────── */
+  {
+    id: 'imp-0509ua', date: '2026-05-09', templateId: 'tpl-ua',
+    name: 'Upper A — Push lourd', saved: true,
+    entries: [
+      { name: 'Développé couché barre', target: null,
+        sets: [{weight:80,reps:6},{weight:80,reps:6},{weight:80,reps:5},{weight:80,reps:5}] },
+      { name: 'Rowing barre buste penché', target: null,
+        sets: [{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null}] },
+      { name: 'Développé militaire haltères', target: null,
+        sets: [{weight:28,reps:null},{weight:28,reps:null},{weight:28,reps:null},{weight:28,reps:null}] },
+      { name: 'Tirage horizontal serré', target: null,
+        sets: [{weight:50,reps:null}] },
+      { name: 'Élévations latérales', target: null,
+        sets: [{weight:12,reps:10}] },
+      { name: 'Curl machine', target: null,
+        sets: [{weight:45,reps:null}] },
+      { name: 'Triceps poulie haute (corde)', target: null,
+        sets: [{weight:50,reps:12}] },
+    ]
+  },
+
+  /* ── 10 mai 2026 — Lower A ────────────────────────────────────── */
+  {
+    id: 'imp-0510la', date: '2026-05-10', templateId: 'tpl-la',
+    name: 'Lower A — Squat', saved: true,
+    entries: [
+      { name: 'Squat barre', target: null,
+        sets: [{weight:100,reps:6},{weight:100,reps:6},{weight:105,reps:6},{weight:105,reps:6}] },
+      { name: 'RDL (soulevé roumain)', target: null,
+        sets: [{weight:48,reps:10},{weight:48,reps:10},{weight:48,reps:10}] },
+      { name: 'Leg curl machine (ischios)', target: null,
+        sets: [{weight:70,reps:null},{weight:70,reps:null},{weight:70,reps:null}] },
+      { name: 'Presse à cuisses', target: null,
+        sets: [{weight:135,reps:null},{weight:135,reps:null},{weight:135,reps:null}] },
+      { name: 'Mollets assis', target: null,
+        sets: [{weight:40,reps:null},{weight:40,reps:null},{weight:40,reps:null},{weight:40,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:17,reps:null},{weight:17,reps:null},{weight:19,reps:null},{weight:19,reps:null}] },
+    ]
+  },
+
+  /* ── 19 mai 2026 — Lower A (version corrigée) ────────────────── */
+  {
+    id: 'imp-0519la', date: '2026-05-19', templateId: 'tpl-la',
+    name: 'Lower A — Squat', saved: true,
+    entries: [
+      { name: 'Squat barre', target: null,
+        sets: [{weight:100,reps:6},{weight:110,reps:6},{weight:110,reps:6},{weight:110,reps:6}] },
+      { name: 'RDL (soulevé roumain)', target: null,
+        sets: [{weight:52,reps:10}] },
+      { name: 'Leg curl machine (ischios)', target: null,
+        sets: [{weight:77,reps:12}] },
+      { name: 'Presse à cuisses', target: null,
+        sets: [{weight:144,reps:null},{weight:144,reps:null},{weight:144,reps:null}] },
+      { name: 'Mollets assis', target: null,
+        sets: [{weight:50,reps:null},{weight:50,reps:null},{weight:50,reps:null},{weight:50,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:19,reps:null},{weight:19,reps:null},{weight:19,reps:null},{weight:19,reps:null}] },
+    ]
+  },
+
+  /* ── 20 mai 2026 — Upper B ────────────────────────────────────── */
+  {
+    id: 'imp-0520ub', date: '2026-05-20', templateId: 'tpl-ub',
+    name: 'Upper B — Pull lourd', saved: true,
+    entries: [
+      { name: 'Développé couché barre', target: null,
+        sets: [{weight:80,reps:6},{weight:85,reps:6},{weight:90,reps:4},{weight:90,reps:3}] },
+      { name: 'Tractions ou tirage vertical lesté', target: null,
+        sets: [{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6}] },
+      { name: 'Tirage horizontal serré', target: null,
+        sets: [{weight:57,reps:null},{weight:57,reps:null},{weight:57,reps:null}] },
+      { name: 'Pec fly machine ou écarté poulie', target: null,
+        sets: [{weight:63,reps:null},{weight:72,reps:null},{weight:72,reps:null}] },
+      { name: 'Dips lestés', target: null,
+        sets: [{weight:0,reps:10},{weight:0,reps:10},{weight:0,reps:10}] },
+      { name: 'Curl barre EZ debout', target: null,
+        sets: [{weight:30,reps:10},{weight:30,reps:10},{weight:30,reps:8}] },
+      { name: 'Curl marteau haltères', target: null,
+        sets: [{weight:16,reps:10},{weight:16,reps:10}] },
+    ]
+  },
+
+  /* ── 23 mai 2026 — Lower B ────────────────────────────────────── */
+  {
+    id: 'imp-0523lb', date: '2026-05-23', templateId: 'tpl-lb',
+    name: 'Lower B — Hip hinge', saved: true,
+    entries: [
+      { name: 'Soulevé de terre conventionnel', target: null,
+        sets: [{weight:60,reps:null},{weight:100,reps:null},{weight:120,reps:null}] },
+      { name: 'Hack squat ou fentes haltères', target: null,
+        sets: [{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null}] },
+      { name: 'Hip thrust barre', target: null,
+        sets: [{weight:20,reps:null},{weight:30,reps:null},{weight:40,reps:null}] },
+      { name: 'Leg extension (quads)', target: null,
+        sets: [{weight:84,reps:null},{weight:84,reps:null},{weight:84,reps:null}] },
+      { name: 'Mollets debout', target: null,
+        sets: [{weight:45,reps:null},{weight:45,reps:null},{weight:45,reps:null},{weight:45,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:17,reps:null},{weight:17,reps:null},{weight:17,reps:null},{weight:14,reps:null}] },
+    ]
+  },
+
+  /* ── 24 mai 2026 — Upper A (avec PR 100 kg au développé) ─────── */
+  {
+    id: 'imp-0524ua', date: '2026-05-24', templateId: 'tpl-ua',
+    name: 'Upper A — Push lourd', saved: true,
+    entries: [
+      /* Progression vers PR : 80×6 → 85×6 → 90×3 → 90×3 → 100 (PR) */
+      { name: 'Développé couché barre', target: null,
+        sets: [{weight:80,reps:6},{weight:85,reps:6},{weight:90,reps:3},{weight:90,reps:3},{weight:100,reps:1}] },
+      { name: 'Rowing barre buste penché', target: null,
+        sets: [{weight:60,reps:8},{weight:60,reps:10},{weight:60,reps:10},{weight:60,reps:10}] },
+      { name: 'Développé militaire haltères', target: null,
+        sets: [{weight:28,reps:null},{weight:30,reps:null},{weight:30,reps:null},{weight:30,reps:null}] },
+      { name: 'Tirage vertical poulie', target: null,
+        sets: [{weight:52,reps:10},{weight:52,reps:10},{weight:52,reps:10}] },
+      { name: 'Élévations latérales', target: null,
+        sets: [{weight:12,reps:10}] },
+      { name: 'Curl haltères banc incliné', target: null,
+        sets: [{weight:12,reps:12},{weight:12,reps:12},{weight:12,reps:10}] },
+      { name: 'Triceps poulie haute (corde)', target: null,
+        sets: [{weight:24,reps:12},{weight:24,reps:10},{weight:24,reps:10}] },
+    ]
+  },
+
+  /* ── 31 mai 2026 — Lower B ────────────────────────────────────── */
+  {
+    id: 'imp-0531lb', date: '2026-05-31', templateId: 'tpl-lb',
+    name: 'Lower B — Hip hinge', saved: true,
+    entries: [
+      { name: 'Soulevé de terre conventionnel', target: null,
+        sets: [{weight:100,reps:null},{weight:120,reps:null}] },
+      { name: 'Hack squat ou fentes haltères', target: null,
+        sets: [{weight:70,reps:null}] },
+      { name: 'Hip thrust barre', target: null,
+        sets: [{weight:30,reps:null},{weight:40,reps:null},{weight:45,reps:null}] },
+      { name: 'Leg extension (quads)', target: null,
+        sets: [{weight:84,reps:null},{weight:84,reps:null},{weight:84,reps:null}] },
+      { name: 'Mollets debout', target: null,
+        sets: [{weight:45,reps:null},{weight:45,reps:null},{weight:45,reps:null},{weight:45,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:17,reps:null},{weight:17,reps:null},{weight:17,reps:null},{weight:14,reps:null}] },
+    ]
+  },
+
+  /* ── 5 juin 2026 — Upper B ────────────────────────────────────── */
+  {
+    id: 'imp-0605ub', date: '2026-06-05', templateId: 'tpl-ub',
+    name: 'Upper B — Pull lourd', saved: true,
+    entries: [
+      { name: 'Développé incliné haltères', target: null,
+        sets: [{weight:30,reps:null},{weight:32,reps:null},{weight:34,reps:null},{weight:34,reps:null}] },
+      { name: 'Tractions ou tirage vertical lesté', target: null,
+        sets: [{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6},{weight:0,reps:6}] },
+      { name: 'Tirage horizontal serré', target: null,
+        sets: [{weight:57,reps:null},{weight:57,reps:null},{weight:57,reps:null}] },
+      { name: 'Pec fly machine ou écarté poulie', target: null,
+        sets: [{weight:63,reps:null},{weight:72,reps:null},{weight:72,reps:null}] },
+      { name: 'Dips lestés', target: null,
+        sets: [{weight:0,reps:10},{weight:0,reps:10},{weight:0,reps:10}] },
+      { name: 'Curl barre EZ debout', target: null,
+        sets: [{weight:41,reps:10}] },
+    ]
+  },
+
+  /* ── 7 juin 2026 — Lower B ────────────────────────────────────── */
+  {
+    id: 'imp-0607lb', date: '2026-06-07', templateId: 'tpl-lb',
+    name: 'Lower B — Hip hinge', saved: true,
+    entries: [
+      { name: 'Soulevé de terre conventionnel', target: null,
+        sets: [{weight:100,reps:6},{weight:110,reps:3},{weight:100,reps:4},{weight:100,reps:4}] },
+      { name: 'Hack squat ou fentes haltères', target: null,
+        sets: [{weight:80,reps:null}] },
+      { name: 'Hip thrust barre', target: null,
+        sets: [{weight:45,reps:8}] },
+      { name: 'Leg extension (quads)', target: null,
+        sets: [{weight:90,reps:12},{weight:90,reps:12},{weight:90,reps:12}] },
+      { name: 'Mollets debout', target: null,
+        sets: [{weight:50,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:17,reps:null},{weight:17,reps:null},{weight:17,reps:null},{weight:14,reps:null}] },
+    ]
+  },
+
+  /* ── 9 juin 2026 — Upper A ────────────────────────────────────── */
+  {
+    id: 'imp-0609ua', date: '2026-06-09', templateId: 'tpl-ua',
+    name: 'Upper A — Push lourd', saved: true,
+    entries: [
+      { name: 'Développé couché barre', target: null,
+        sets: [{weight:80,reps:6},{weight:85,reps:5},{weight:90,reps:4},{weight:90,reps:3}] },
+      { name: 'Rowing barre buste penché', target: null,
+        sets: [{weight:50,reps:null},{weight:60,reps:null},{weight:60,reps:null},{weight:60,reps:null}] },
+      { name: 'Développé militaire haltères', target: null,
+        sets: [{weight:30,reps:null},{weight:30,reps:null},{weight:30,reps:null},{weight:30,reps:null}] },
+      { name: 'Tirage vertical poulie', target: null,
+        sets: [{weight:52,reps:10},{weight:52,reps:10},{weight:52,reps:10}] },
+      { name: 'Élévations latérales', target: null,
+        sets: [{weight:14,reps:10}] },
+      { name: 'Curl machine', target: null,
+        sets: [{weight:45,reps:10},{weight:45,reps:10},{weight:45,reps:10},{weight:45,reps:10}] },
+      { name: 'Triceps machine', target: null,
+        sets: [{weight:41,reps:12},{weight:41,reps:12},{weight:41,reps:12}] },
+    ]
+  },
+
+  /* ── 10 juin 2026 — Lower A ───────────────────────────────────── */
+  {
+    id: 'imp-0610la', date: '2026-06-10', templateId: 'tpl-la',
+    name: 'Lower A — Squat', saved: true,
+    entries: [
+      { name: 'Squat barre', target: null,
+        sets: [{weight:100,reps:6},{weight:120,reps:6},{weight:120,reps:6},{weight:120,reps:6}] },
+      { name: 'RDL (soulevé roumain)', target: null,
+        sets: [{weight:50,reps:10},{weight:60,reps:10}] },
+      { name: 'Leg curl machine (ischios)', target: null,
+        sets: [{weight:77,reps:12}] },
+      { name: 'Presse à cuisses', target: null,
+        sets: [{weight:144,reps:null},{weight:144,reps:null},{weight:144,reps:null}] },
+      { name: 'Mollets assis', target: null,
+        sets: [{weight:50,reps:null},{weight:50,reps:null},{weight:50,reps:null},{weight:50,reps:null}] },
+      { name: 'Face pull', target: null,
+        sets: [{weight:18,reps:null}] },
+    ]
+  },
+];
+
+function run() {
+  const btn = document.getElementById('btn');
+  const log = document.getElementById('log');
+  btn.disabled = true;
+  log.style.display = 'block';
+  log.className = '';
+
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    const db = raw ? JSON.parse(raw) : {body:{heightCm:null,entries:[]},templates:[],sessions:[],exerciseLib:[],seeded:false};
+    if (!Array.isArray(db.sessions)) db.sessions = [];
+    if (!Array.isArray(db.exerciseLib)) db.exerciseLib = [];
+
+    const added = [], skipped = [];
+
+    for (const s of SESSIONS) {
+      const exists = db.sessions.some(x => x.id === s.id || (x.date === s.date && x.name === s.name));
+      if (exists) { skipped.push(s); continue; }
+      db.sessions.push(s);
+      added.push(s);
+      for (const e of s.entries) {
+        if (!db.exerciseLib.includes(e.name)) db.exerciseLib.push(e.name);
+      }
+    }
+
+    /* Tri chronologique */
+    db.sessions.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+
+    const fmt = s => `${s.date.slice(8)}/${s.date.slice(5,7)} — ${s.name}`;
+    log.innerHTML =
+      `<h2>✅ ${added.length} séance(s) importée(s)</h2>` +
+      `<ul>${added.map(s => `<li>${fmt(s)}</li>`).join('')}</ul>` +
+      (skipped.length
+        ? `<h2>⚠ ${skipped.length} déjà présente(s), ignorée(s)</h2><ul>${skipped.map(s=>`<li>${fmt(s)}</li>`).join('')}</ul>`
+        : '') +
+      `<p><strong>Ouvrez (ou rechargez) l'app Stats Stats pour voir vos séances.</strong></p>`;
+  } catch (e) {
+    log.className = 'error';
+    log.innerHTML = `<h2>❌ Erreur</h2><p>${e.message}</p>`;
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
