@@ -175,6 +175,11 @@
 </header>
 
 <main>
+  <aside class="card" id="app-update" hidden role="status" aria-live="polite">
+    <div style="font-weight:700">Nouvelle version disponible</div>
+    <p class="muted small" style="line-height:1.5">Mets l’application à jour en conservant tes séances et tes mesures.</p>
+    <button class="btn sm" onclick="applyAppUpdate()">Mettre à jour</button>
+  </aside>
   <!-- ============ SÉANCE ============ -->
   <section class="view active" id="v-seance"></section>
   <!-- ============ PROGRAMME ============ -->
@@ -206,51 +211,61 @@ const DEFAULT_DB={
   templates:[],
   sessions:[],
   exerciseLib:[],  // noms d'exercices déjà utilisés
-  seeded:false
+  seeded:false,
+  programVersions:[]
 };
 
-/* Programme Upper/Lower pré-enregistré (abdos -> face pull pour la posture) */
+/* Programme octobre 2026 : ajout unique, anciens modèles conservés en archive. */
+const PROGRAM_VERSION='2026-10-priorite-jambes';
+const LEGACY_TEMPLATE_IDS=['tpl-ua','tpl-la','tpl-ub','tpl-lb'];
 const SEED_TEMPLATES=[
-  {id:'tpl-ua',name:'Upper A — Push lourd',exercises:[
-    {name:'Développé couché barre',targetSets:4,targetReps:'4–6',rest:'3 min'},
-    {name:'Rowing barre buste penché',targetSets:4,targetReps:'6–8',rest:'2–3 min'},
-    {name:'Développé militaire haltères',targetSets:4,targetReps:'6–8',rest:'2–3 min'},
+  {id:'tpl-oct26-upper',name:'Haut du corps',day:'Lundi',duration:'60–70 min',
+    notes:'Alterner curl / triceps pour gagner du temps. Relevés de jambes sans balancement, avec un léger enroulement du bassin.',exercises:[
+    {name:'Développé couché barre',targetSets:4,targetReps:'5–8',rest:'2–3 min'},
+    {name:'Rowing avec poitrine appuyée',targetSets:3,targetReps:'8–12',rest:'2 min'},
     {name:'Tirage vertical poulie',targetSets:3,targetReps:'8–12',rest:'2 min'},
-    {name:'Élévations latérales',targetSets:3,targetReps:'12–15',rest:'90 s'},
-    {name:'Curl haltères banc incliné',targetSets:3,targetReps:'10–12',rest:'90 s'},
-    {name:'Triceps poulie haute (corde)',targetSets:3,targetReps:'10–12',rest:'90 s'},
+    {name:'Élévations latérales',targetSets:3,targetReps:'12–20',rest:'60–90 s'},
+    {name:'Curl haltères banc incliné',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
+    {name:'Triceps poulie haute (corde)',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
+    {name:'Relevés de jambes',targetSets:4,targetReps:'10–15',rest:'60–90 s',bodyweight:true},
   ]},
-  {id:'tpl-la',name:'Lower A — Squat',exercises:[
-    {name:'Squat barre',targetSets:4,targetReps:'4–6',rest:'3 min'},
+  {id:'tpl-oct26-lower',name:'Bas du corps',day:'Mardi',duration:'60–70 min',
+    notes:'Faire les abdos après les mouvements lourds. Alterner mollets / gainage. Crunch : enrouler le tronc avec contrôle.',exercises:[
+    {name:'Squat barre',targetSets:3,targetReps:'5–8',rest:'2–3 min'},
     {name:'RDL (soulevé roumain)',targetSets:3,targetReps:'8–10',rest:'2–3 min'},
-    {name:'Presse à cuisses',targetSets:3,targetReps:'10–12',rest:'2 min'},
-    {name:'Leg curl machine (ischios)',targetSets:3,targetReps:'10–12',rest:'90 s'},
-    {name:'Mollets assis',targetSets:4,targetReps:'12–15',rest:'60 s'},
-    {name:'Gainage planche',targetSets:3,targetReps:'45 s',rest:'60 s'},
+    {name:'Presse à cuisses',targetSets:3,targetReps:'10–15',rest:'2 min'},
+    {name:'Leg curl machine (ischios)',targetSets:3,targetReps:'10–15',rest:'90 s'},
+    {name:'Mollets assis',targetSets:3,targetReps:'12–20',rest:'60–90 s'},
+    {name:'Crunch lesté machine',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
+    {name:'Gainage planche',targetSets:3,targetReps:'30–45',rest:'60 s',unit:'seconds'},
   ]},
-  {id:'tpl-ub',name:'Upper B — Pull lourd',exercises:[
-    {name:'Tractions ou tirage vertical lesté',targetSets:4,targetReps:'6–8',rest:'3 min'},
-    {name:'Développé incliné barre',targetSets:4,targetReps:'8–10',rest:'2–3 min'},
-    {name:'Tirage horizontal serré',targetSets:3,targetReps:'10–12',rest:'2 min'},
-    {name:'Pec fly machine ou écarté poulie',targetSets:3,targetReps:'12–15',rest:'90 s'},
-    {name:'Dips lestés',targetSets:3,targetReps:'8–10',rest:'2 min'},
-    {name:'Curl barre EZ debout',targetSets:3,targetReps:'8–10',rest:'90 s'},
-    {name:'Curl marteau haltères',targetSets:2,targetReps:'12–15',rest:'60 s'},
+  {id:'tpl-oct26-full',name:'Corps entier — Priorité jambes',day:'Jeudi',duration:'60–70 min',
+    notes:'Privilégier le hack squat sur ce bloc ; fentes possibles, répétitions par jambe. Tractions ou tirage vertical selon le matériel. Alterner curl / triceps puis mollets / crunch.',exercises:[
+    {name:'Hack squat ou fentes haltères',targetSets:3,targetReps:'8–12',rest:'2–3 min'},
+    {name:'Développé incliné haltères',targetSets:3,targetReps:'8–12',rest:'2–3 min'},
+    {name:'Tractions ou tirage vertical lesté',targetSets:3,targetReps:'6–10',rest:'2 min'},
+    {name:'Leg curl machine (ischios)',targetSets:3,targetReps:'10–15',rest:'90 s'},
+    {name:'Curl barre EZ debout',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
+    {name:'Triceps poulie haute (corde)',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
+    {name:'Mollets debout',targetSets:3,targetReps:'12–20',rest:'60–90 s'},
+    {name:'Crunch lesté machine',targetSets:3,targetReps:'10–15',rest:'60–90 s'},
   ]},
-  {id:'tpl-lb',name:'Lower B — Hip hinge',exercises:[
-    {name:'Soulevé de terre conventionnel',targetSets:4,targetReps:'3–5',rest:'3 min'},
-    {name:'Hack squat ou fentes haltères',targetSets:3,targetReps:'8–10',rest:'2–3 min'},
-    {name:'Hip thrust barre',targetSets:3,targetReps:'10–12',rest:'2 min'},
-    {name:'Leg extension (quads)',targetSets:3,targetReps:'12–15',rest:'90 s'},
-    {name:'Mollets debout',targetSets:4,targetReps:'10–12',rest:'60 s'},
-    {name:'Face pull',targetSets:3,targetReps:'15–20',rest:'90 s'},
+  {id:'tpl-oct26-circuit',name:'Circuit poids du corps + escalier',day:'Samedi',duration:'35–45 min',kind:'circuit',rounds:3,
+    notes:'Faire 3 tours : pompes → tractions → squats, avec de courtes transitions puis 60–90 s de repos entre les tours. Garder environ 3 répétitions en réserve ; tractions assistées si besoin. Ensuite escalier à effort modéré (environ 6/10), puis gainage. Augmenter les tours OU la durée de l’escalier selon la récupération.',exercises:[
+    {name:'Pompes',targetSets:3,targetReps:'8–15',rest:'Courte transition',bodyweight:true},
+    {name:'Tractions',targetSets:3,targetReps:'3–6',rest:'Courte transition',bodyweight:true},
+    {name:'Squats au poids du corps',targetSets:3,targetReps:'15–20',rest:'60–90 s entre les tours',bodyweight:true},
+    {name:'Escalier',targetSets:1,targetReps:'10–15',rest:null,unit:'minutes'},
+    {name:'Gainage planche',targetSets:3,targetReps:'30–45',rest:'45–60 s',unit:'seconds'},
   ]},
 ];
 function seedProgram(){
-  if(db.seeded)return;
-  if(db.templates.length||db.sessions.length){db.seeded=true;save();return;}
-  db.templates=structuredClone(SEED_TEMPLATES);
+  if(db.programVersions.includes(PROGRAM_VERSION))return;
+  const existing=new Set(db.templates.map(t=>t.id));
+  db.templates.forEach(t=>{if(LEGACY_TEMPLATE_IDS.includes(t.id))t.archived=true;});
+  db.templates=[...structuredClone(SEED_TEMPLATES).filter(t=>!existing.has(t.id)),...db.templates];
   SEED_TEMPLATES.forEach(t=>t.exercises.forEach(x=>{if(!db.exerciseLib.includes(x.name))db.exerciseLib.push(x.name);}));
+  db.programVersions.push(PROGRAM_VERSION);
   db.seeded=true;save();
 }
 let db=load();
@@ -269,7 +284,17 @@ function epley(w,r){return r>0&&w>0?Math.round(w*(1+r/30)):0;}
 function bestSet(sets){let b=null;for(const s of sets){if(!s.weight||!s.reps)continue;
   const e=epley(s.weight,s.reps);if(!b||e>b.e)b={...s,e};}return b;}
 function exMaxWeight(sets){let m=0;for(const s of sets){if(s.weight>m&&s.reps>0)m=s.weight;}return m;}
-function exVolume(sets){return sets.reduce((a,s)=>a+((s.weight||0)*(s.reps||0)),0);}
+function exerciseMeta(name){return SEED_TEMPLATES.flatMap(t=>t.exercises).find(x=>x.name===name)||{};}
+function entryUnit(e){return e.unit||e.target?.unit||exerciseMeta(e.name).unit||'reps';}
+function isBodyweight(e){return e.bodyweight??exerciseMeta(e.name).bodyweight??false;}
+function unitLabel(unit){return unit==='seconds'?'s':unit==='minutes'?'min':'reps';}
+function targetLabel(x){return `${x.targetSets}×${x.targetReps||'?'}${x.unit&&x.unit!=='reps'?' '+unitLabel(x.unit):''}`;}
+function templateSummary(t){
+  const count=t.exercises.reduce((n,x)=>n+(x.targetSets||0),0);
+  const volume=t.exercises.length&&t.exercises.every(x=>x.targetSets)?`${count} séries`:`${t.exercises.length} exercices`;
+  return [t.day,t.kind==='circuit'?`${t.rounds||3} tours + escalier / gainage`:volume,t.duration].filter(Boolean).join(' · ');
+}
+function exVolume(sets,unit='reps'){return unit==='reps'?sets.reduce((a,s)=>a+((s.weight||0)*(s.reps||0)),0):0;}
 
 /* historique d'un exercice (par nom) trié par date asc */
 function exerciseHistory(name){
@@ -277,8 +302,9 @@ function exerciseHistory(name){
   for(const s of db.sessions){
     for(const e of s.entries){
       if(e.name===name){
-        const valid=e.sets.filter(x=>x.weight>0&&x.reps>0);
-        if(valid.length) out.push({date:s.date,sets:valid});
+        const unit=entryUnit(e),bodyweight=isBodyweight(e);
+        const valid=e.sets.filter(x=>x.reps>0&&(unit!=='reps'||bodyweight||(x.weight!=null&&x.weight>=0)));
+        if(valid.length) out.push({date:s.date,sets:valid,unit,bodyweight});
       }
     }
   }
@@ -294,7 +320,7 @@ function allExerciseNames(){
 function prBefore(name,beforeISO){
   let best=0;
   for(const h of exerciseHistory(name)){
-    if(h.date>=beforeISO)continue;
+    if(h.date>=beforeISO||h.unit!=='reps'||h.bodyweight)continue;
     for(const s of h.sets)best=Math.max(best,epley(s.weight,s.reps));
   }
   return best;
@@ -344,12 +370,13 @@ function renderSeance(){
       <div class="dt">${recent.length} séance${recent.length>1?'s':''} enregistrée${recent.length>1?'s':''}</div>
     </div></div>`;
 
-  if(db.templates.length){
+  const active=db.templates.filter(t=>!t.archived);
+  if(active.length){
     html+=`<div class="eyebrow">Démarrer une séance</div>`;
-    html+=db.templates.map(t=>`
+    html+=active.map(t=>`
       <button class="litem" style="width:100%;text-align:left" onclick="startSession('${t.id}')">
         <div><div class="t">${esc(t.name)}</div>
-          <div class="s">${t.exercises.length} exercice${t.exercises.length>1?'s':''}</div></div>
+          <div class="s">${esc(templateSummary(t))}</div></div>
         <span class="chev">›</span>
       </button>`).join('');
     html+=`<button class="btn ghost sm" style="width:100%;margin-top:4px" onclick="startSession(null)">+ Séance libre (sans modèle)</button>`;
@@ -367,7 +394,7 @@ function renderSeance(){
     html+=`<div class="eyebrow">Historique récent</div>`;
     html+=recent.map(s=>{
       const sets=s.entries.reduce((a,e)=>a+e.sets.filter(x=>x.reps>0).length,0);
-      const vol=s.entries.reduce((a,e)=>a+exVolume(e.sets),0);
+      const vol=s.entries.reduce((a,e)=>a+exVolume(e.sets,entryUnit(e)),0);
       return `<button class="litem" style="width:100%;text-align:left" onclick="openSession('${s.id}')">
         <div><div class="t">${esc(s.name||'Séance')}</div>
           <div class="s">${fmtDate(s.date)} · ${s.entries.length} ex · ${sets} séries · ${Math.round(vol)} kg vol.</div></div>
@@ -381,10 +408,11 @@ function startSession(templateId){
   const t=templateId?db.templates.find(x=>x.id===templateId):null;
   state.session={
     id:uid(),date:todayISO(),templateId:templateId||null,
-    name:t?t.name:'Séance libre',saved:false,
-    entries:(t?t.exercises:[]).map(x=>({name:x.name,
-      target:x.targetSets?{sets:x.targetSets,reps:x.targetReps,rest:x.rest}:null,
-      sets:[{weight:lastWeight(x.name),reps:null}]}))
+    name:t?t.name:'Séance libre',saved:false,notes:t?.notes||'',
+    entries:(t?t.exercises:[]).map(x=>({name:x.name,unit:x.unit||'reps',bodyweight:!!x.bodyweight,
+      target:x.targetSets?{sets:x.targetSets,reps:x.targetReps,rest:x.rest,unit:x.unit||'reps'}:null,
+      sets:Array.from({length:x.targetSets||1},()=>({
+        weight:x.unit&&x.unit!=='reps'?null:lastWeight(x.name)??(x.bodyweight?0:null),reps:null}))}))
   };
   render();window.scrollTo(0,0);
 }
@@ -392,38 +420,42 @@ function lastWeight(name){const h=exerciseHistory(name);if(!h.length)return null
   const last=h[h.length-1];return exMaxWeight(last.sets)||null;}
 
 function openSession(id){const s=db.sessions.find(x=>x.id===id);if(!s)return;
-  state.session=structuredClone(s);state.session.saved=true;render();window.scrollTo(0,0);}
+  state.session=structuredClone(s);state.session.saved=true;state.session.dirty=false;render();window.scrollTo(0,0);}
 
 function seanceLogHTML(s){
   let html=`<div class="seshead">
     <div><div class="ttl">${esc(s.name)}</div><div class="dt">${fmtDate(s.date)}</div></div>
     <button class="delx" onclick="closeSessionView()">✕</button></div>`;
 
+  if(s.notes)html+=`<p class="muted small" style="line-height:1.6">${esc(s.notes)}</p>`;
   html+=s.entries.map((e,ei)=>{
+    const unit=entryUnit(e),timed=unit!=='reps',bodyweight=isBodyweight(e);
     const setsHtml=e.sets.map((st,si)=>`
       <div class="setrow">
         <div class="idx">${si+1}</div>
-        <input class="mini" type="number" inputmode="decimal" placeholder="—" value="${st.weight??''}"
-               oninput="setField(${ei},${si},'weight',this.value)">
-        <input class="mini" type="number" inputmode="numeric" placeholder="—" value="${st.reps??''}"
+        ${timed?'<span class="muted" style="text-align:center">—</span>':`<input class="mini" type="number" min="0" step="any" inputmode="decimal" placeholder="${bodyweight?'0':'—'}" value="${st.weight??''}"
+               aria-label="${bodyweight?'Lest':'Poids'} en kg, série ${si+1}"
+               oninput="setField(${ei},${si},'weight',this.value)">`}
+        <input class="mini" type="number" min="0" step="${timed?'any':'1'}" inputmode="${timed?'decimal':'numeric'}" placeholder="—" value="${st.reps??''}"
+               aria-label="${timed?'Durée en '+unitLabel(unit):'Répétitions'}, série ${si+1}"
                oninput="setField(${ei},${si},'reps',this.value)">
         <button class="x" onclick="rmSet(${ei},${si})">×</button>
       </div>`).join('');
-    const best=bestSet(e.sets.filter(x=>x.weight>0&&x.reps>0));
+    const best=timed||bodyweight?null:bestSet(e.sets.filter(x=>x.weight>0&&x.reps>0));
     const tgt=e.target;
     const sub=best?`top ${best.weight}kg × ${best.reps} · 1RM≈${best.e}kg`
-      :(tgt?`cible ${tgt.sets}×${tgt.reps}${tgt.rest?` · repos ${tgt.rest}`:''}`:'à remplir');
+      :(tgt?`cible ${tgt.sets}×${tgt.reps}${timed?' '+unitLabel(unit):''}${tgt.rest?` · repos ${tgt.rest}`:''}`:'à remplir');
     const pr=best?prBefore(e.name,s.date):0;
     const isPR=best&&best.e>pr&&pr>0;
     return `<div class="exblock">
       <div class="exhead">
         <div><div class="name">${esc(e.name)}</div>
-          <div class="sub">${sub}</div></div>
+          <div class="sub">${esc(sub)}</div></div>
         <div class="row" style="gap:8px">
           ${isPR?'<span class="prflag">RECORD</span>':''}
           <button class="delx" onclick="rmExercise(${ei})">⋯</button></div>
       </div>
-      <div class="setlabels"><span>Série</span><span>Poids (kg)</span><span>Reps</span><span></span></div>
+      <div class="setlabels"><span>Série</span><span>${timed?'':bodyweight?'Lest (kg)':'Poids (kg)'}</span><span>${timed?'Durée ('+unitLabel(unit)+')':'Reps'}</span><span></span></div>
       <div class="sets">${setsHtml}
         <button class="addset" onclick="addSet(${ei})">+ Ajouter une série</button></div>
     </div>`;
@@ -436,16 +468,17 @@ function seanceLogHTML(s){
 }
 
 function setField(ei,si,f,v){const n=v===''?null:parseFloat(v.replace(',','.'));
-  state.session.entries[ei].sets[si][f]=isNaN(n)?null:n;}
+  state.session.entries[ei].sets[si][f]=isNaN(n)?null:n;state.session.dirty=true;}
 function addSet(ei){const sets=state.session.entries[ei].sets;const last=sets[sets.length-1]||{};
-  sets.push({weight:last.weight??null,reps:last.reps??null});reRenderSession();}
+  sets.push({weight:last.weight??null,reps:last.reps??null});state.session.dirty=true;reRenderSession();}
 function rmSet(ei,si){const sets=state.session.entries[ei].sets;
-  if(sets.length>1)sets.splice(si,1);else sets[0]={weight:null,reps:null};reRenderSession();}
+  if(sets.length>1)sets.splice(si,1);else sets[0]={weight:null,reps:null};state.session.dirty=true;reRenderSession();}
 function rmExercise(ei){if(confirm('Retirer cet exercice de la séance ?')){
-  state.session.entries.splice(ei,1);reRenderSession();}}
+  state.session.entries.splice(ei,1);state.session.dirty=true;reRenderSession();}}
 function reRenderSession(){document.getElementById('v-seance').innerHTML=seanceLogHTML(state.session);}
+function hasPendingSessionChanges(){return !!state.session&&(state.session.dirty||(!state.session.saved&&hasData(state.session)));}
 function closeSessionView(){
-  if(!state.session.saved && hasData(state.session)){
+  if(hasPendingSessionChanges()){
     if(!confirm('Quitter sans enregistrer ? Les données saisies seront perdues.'))return;
   }
   state.session=null;render();
@@ -460,9 +493,11 @@ function saveSession(){
   s.entries.forEach(e=>{if(!db.exerciseLib.includes(e.name))db.exerciseLib.push(e.name);});
   // détection PR globale pour le toast
   let prHit=false;
-  s.entries.forEach(e=>{const b=bestSet(e.sets);const before=prBefore(e.name,s.date);
+  s.entries.forEach(e=>{if(entryUnit(e)!=='reps'||isBodyweight(e))return;
+    const b=bestSet(e.sets);const before=prBefore(e.name,s.date);
     if(b&&before>0&&b.e>before)prHit=true;});
   const idx=db.sessions.findIndex(x=>x.id===s.id);
+  s.dirty=false;
   if(idx>=0)db.sessions[idx]=structuredClone(s);else db.sessions.push(structuredClone(s));
   save();state.session=null;render();
   toast(prHit?'💪 Nouveau record !':'Séance enregistrée',prHit);
@@ -485,36 +520,46 @@ function pickExercise(name){addExerciseToSession(name);closeSheet();}
 function confirmAddExercise(){const v=document.getElementById('newEx').value.trim();
   if(!v){toast('Saisis un nom');return;}addExerciseToSession(v);closeSheet();}
 function addExerciseToSession(name){
-  state.session.entries.push({name,sets:[{weight:lastWeight(name),reps:null}]});
+  const meta=exerciseMeta(name);
+  state.session.entries.push({name,unit:meta.unit||'reps',bodyweight:!!meta.bodyweight,
+    sets:[{weight:meta.unit?null:lastWeight(name)??(meta.bodyweight?0:null),reps:null}]});
+  state.session.dirty=true;
   reRenderSession();}
 
 /* ============================================================
    VUE PROGRAMME
    ============================================================ */
+function templateCard(t){
+  return `<div class="card">
+    <div class="row between">
+      <div><div style="font-weight:700;font-size:16px">${esc(t.name)}</div>
+        <div class="muted small num" style="margin-top:4px">${esc(templateSummary(t))}</div></div>
+      <button class="btn ghost sm" onclick="openEditTemplate('${t.id}')">Modifier</button>
+    </div>
+    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+      ${t.exercises.map(x=>`<span class="pill">${esc(x.name)}${x.targetSets?' · '+esc(targetLabel(x)):''}</span>`).join('')}
+    </div>
+    ${t.notes?`<p class="muted small" style="line-height:1.6;margin-bottom:0">${esc(t.notes)}</p>`:''}
+    ${t.archived?`<button class="btn ghost sm" style="margin-top:12px" onclick="toggleTemplateArchive('${t.id}')">Réactiver</button>`:''}
+  </div>`;
+}
+function toggleTemplateArchive(id){
+  const t=db.templates.find(x=>x.id===id);if(!t)return;
+  t.archived=!t.archived;save();closeSheet();render();toast(t.archived?'Séance type archivée':'Séance type réactivée');
+}
 function renderProg(){
   const el=document.getElementById('v-prog');
+  const active=db.templates.filter(t=>!t.archived),archived=db.templates.filter(t=>t.archived);
   let html=`<div class="seshead"><div><div class="ttl">Programme</div>
-    <div class="dt">Tes séances types</div></div></div>`;
-  if(!db.templates.length){
-    html+=`<div class="card empty"><div class="big">📋</div>
-      <h3>Aucune séance type</h3>
-      <p>Crée des modèles réutilisables (ex. Haut / Bas, ou Push / Pull / Jambes) avec la liste d'exercices. Tu les lances ensuite en un tap depuis l'onglet Séance.</p></div>`;
-  }else{
-    html+=db.templates.map(t=>`
-      <div class="card">
-        <div class="row between">
-          <div><div class="litem-t" style="font-weight:700;font-size:16px">${esc(t.name)}</div>
-            <div class="s muted small num">${t.exercises.length} exercice${t.exercises.length>1?'s':''}</div></div>
-          <div class="row" style="gap:6px">
-            <button class="btn ghost sm" onclick="openEditTemplate('${t.id}')">Modifier</button>
-          </div>
-        </div>
-        ${t.exercises.length?`<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
-          ${t.exercises.map(x=>`<span class="pill">${esc(x.name)}${x.targetSets?` · ${x.targetSets}×${x.targetReps||'?'}`:''}</span>`).join('')}
-        </div>`:''}
-      </div>`).join('');
-  }
+    <div class="dt">${active.length} séances actives · Priorité jambes et abdos</div></div></div>
+    <div class="card"><div style="font-weight:700">Charges et progression</div>
+      <p class="muted small" style="line-height:1.6;margin-bottom:0">Échauffement : 5–8 min, puis montée en charge (séries en plus). Garder 3–4 répétitions en réserve au départ, puis environ 2 selon la récupération, sans réduire les séries. Quand toutes les séries atteignent le haut de la plage avec cette marge, augmenter du plus petit palier disponible. Si les jambes restent lourdes au squat suivant, modérer d’abord l’escalier.</p></div>`;
+  html+=active.length?active.map(templateCard).join(''):`<div class="card empty"><h3>Aucune séance type active</h3><p>Crée une séance ou réactive un modèle archivé.</p></div>`;
+  if(archived.length)html+=`<details style="margin:18px 0"><summary class="muted small" style="cursor:pointer;margin-bottom:12px">Séances types archivées (${archived.length})</summary>${archived.map(templateCard).join('')}</details>`;
   html+=`<button class="btn" style="margin-top:6px" onclick="openEditTemplate(null)">+ Nouvelle séance type</button>`;
+  html+=`<hr class="sep"><div class="eyebrow">Application</div>
+    <button class="btn ghost" onclick="checkAppUpdate(true)">Vérifier les mises à jour</button>
+    <p class="muted small" style="line-height:1.5">La recherche se fait aussi à l’ouverture et au retour dans l’application. Une mise à jour conserve les données de cet appareil.</p>`;
   html+=`<hr class="sep"><div class="eyebrow">Données</div>
     <button class="btn ghost" onclick="exportData()">⬇ Exporter une sauvegarde (.json)</button>
     <button class="btn ghost" style="margin-top:10px" onclick="document.getElementById('importf').click()">⬆ Importer une sauvegarde</button>
@@ -537,6 +582,7 @@ function renderTemplateSheet(){
     <label class="fld"><span>Nom de la séance</span>
       <input id="tplName" placeholder="ex. Push — Pec/Épaule/Triceps" value="${escAttr(t.name)}"
              oninput="editTpl.name=this.value"></label>
+    <label class="fld"><span>Consignes</span><input value="${esc(t.notes||'')}" oninput="editTpl.notes=this.value"></label>
     <div class="eyebrow" style="margin-top:6px">Exercices</div>
     <div id="tplEx">${t.exercises.map((x,i)=>tplExRow(x,i)).join('')||'<p class="faint small">Aucun exercice pour l\'instant.</p>'}</div>
     <label class="fld" style="margin-top:10px"><span>Ajouter un exercice</span>
@@ -546,7 +592,7 @@ function renderTemplateSheet(){
       ${names.slice(0,12).map(n=>`<button class="chip" onclick="addTplExercise('${escAttr(n)}')">${esc(n)}</button>`).join('')}</div>`:''}
     <button class="btn ghost sm" style="width:100%" onclick="addTplExercise()">+ Ajouter</button>
     <button class="btn" style="margin-top:18px" onclick="saveTemplate()">Enregistrer la séance type</button>
-    ${db.templates.some(x=>x.id===t.id)?`<button class="btn danger" style="margin-top:10px" onclick="deleteTemplate('${t.id}')">Supprimer</button>`:''}
+    ${db.templates.some(x=>x.id===t.id)?`<button class="btn ghost" style="margin-top:10px" onclick="toggleTemplateArchive('${t.id}')">${t.archived?'Réactiver':'Archiver'}</button><button class="btn danger" style="margin-top:10px" onclick="deleteTemplate('${t.id}')">Supprimer</button>`:''}
   `);
 }
 function tplExRow(x,i){
@@ -559,19 +605,26 @@ function tplExRow(x,i){
       <label class="fld" style="margin:0;flex:1"><span>Séries</span>
         <input class="mini" type="number" inputmode="numeric" value="${x.targetSets??''}" placeholder="—"
                oninput="editTpl.exercises[${i}].targetSets=this.value?+this.value:null"></label>
-      <label class="fld" style="margin:0;flex:1.3"><span>Reps</span>
+      <label class="fld" style="margin:0;flex:1.3"><span>Reps / durée</span>
         <input class="mini" type="text" value="${escAttr(x.targetReps??'')}" placeholder="8–12"
                oninput="editTpl.exercises[${i}].targetReps=this.value.trim()||null"></label>
       <label class="fld" style="margin:0;flex:1.3"><span>Repos</span>
         <input class="mini" type="text" value="${escAttr(x.rest??'')}" placeholder="90 s"
                oninput="editTpl.exercises[${i}].rest=this.value.trim()||null"></label>
-    </div></div>`;
+    </div>
+    <label class="fld" style="margin:10px 0 0"><span>Mesure</span>
+      <select onchange="editTpl.exercises[${i}].unit=this.value">
+        ${[['reps','Répétitions'],['seconds','Secondes'],['minutes','Minutes']].map(([v,label])=>`<option value="${v}" ${(x.unit||'reps')===v?'selected':''}>${label}</option>`).join('')}
+      </select></label>
+    <label class="small muted" style="display:block;margin-top:10px"><input type="checkbox" style="width:auto" ${x.bodyweight?'checked':''} onchange="editTpl.exercises[${i}].bodyweight=this.checked"> Poids du corps (lest facultatif)</label>
+    </div>`;
 }
 function addTplExercise(name){
   const inp=document.getElementById('tplNewEx');
   const v=name||(inp?inp.value.trim():'');
   if(!v){toast('Saisis un nom');return;}
-  editTpl.exercises.push({name:v,targetSets:null,targetReps:null,rest:null});
+  const meta=exerciseMeta(v);
+  editTpl.exercises.push({name:v,targetSets:null,targetReps:null,rest:null,unit:meta.unit||'reps',bodyweight:!!meta.bodyweight});
   if(inp&&!name)inp.value='';
   renderTemplateSheet();
 }
@@ -603,7 +656,7 @@ function renderStats(){
   if(!state.statsEx||!names.includes(state.statsEx))state.statsEx=names[0];
 
   // résumé global
-  const totalVol=db.sessions.reduce((a,s)=>a+s.entries.reduce((b,e)=>b+exVolume(e.sets),0),0);
+  const totalVol=db.sessions.reduce((a,s)=>a+s.entries.reduce((b,e)=>b+exVolume(e.sets,entryUnit(e)),0),0);
   const totalSets=db.sessions.reduce((a,s)=>a+s.entries.reduce((b,e)=>b+e.sets.filter(x=>x.reps>0).length,0),0);
   html+=`<div class="tiles" style="margin-bottom:18px">
     <div class="tile"><div class="k">Volume total</div><div class="v">${(totalVol/1000).toFixed(1)}<span class="u"> t</span></div></div>
@@ -614,21 +667,24 @@ function renderStats(){
       ${names.map(n=>`<option ${n===state.statsEx?'selected':''}>${esc(n)}</option>`).join('')}
     </select>`;
 
-  const metrics=[['1rm','1RM estimé'],['weight','Charge max'],['volume','Volume']];
+  const hist=exerciseHistory(state.statsEx);
+  const timed=hist[hist.length-1].unit!=='reps';
+  const bodyweight=hist[hist.length-1].bodyweight||hist.every(h=>h.sets.every(x=>!(x.weight>0)));
+  const metrics=timed?[['duration','Durée totale']]:bodyweight?[['reps','Répétitions'],['weight','Lest max']]:[['1rm','1RM estimé'],['weight','Charge max'],['volume','Volume'],['reps','Répétitions']];
+  if(!metrics.some(m=>m[0]===state.statsMetric))state.statsMetric=metrics[0][0];
   html+=`<div class="seg" style="margin-top:14px">${metrics.map(m=>
     `<button class="${state.statsMetric===m[0]?'on':''}" onclick="state.statsMetric='${m[0]}';renderStats()">${m[1]}</button>`).join('')}</div>`;
-
-  const hist=exerciseHistory(state.statsEx);
-  const series=hist.map(h=>{
+  const unit=timed?unitLabel(hist[hist.length-1].unit):state.statsMetric==='reps'?'reps':'kg';
+  const series=hist.filter(h=>!timed||h.unit===hist[hist.length-1].unit).map(h=>{
     let v;
     if(state.statsMetric==='1rm')v=Math.max(...h.sets.map(s=>epley(s.weight,s.reps)));
     else if(state.statsMetric==='weight')v=exMaxWeight(h.sets);
-    else v=exVolume(h.sets);
+    else if(state.statsMetric==='volume')v=exVolume(h.sets,h.unit);
+    else v=h.sets.reduce((n,s)=>n+s.reps,0);
     return {date:h.date,v};
   });
-  const cur=series[series.length-1].v, first=series[0].v;
-  const delta=cur-first, pct=first?Math.round(delta/first*100):0;
-  const unit=state.statsMetric==='volume'?'kg':'kg';
+  const cur=series[series.length-1].v,first=series[0].v;
+  const delta=cur-first,pct=first?Math.round(delta/first*100):0;
   html+=`<div class="card" style="margin-top:6px">
     <div class="row between">
       <div><div class="muted small">Actuel</div>
@@ -636,16 +692,14 @@ function renderStats(){
       <div style="text-align:right">
         <div class="muted small">Depuis le départ</div>
         <div class="num ${delta>=0?'up':'down'}" style="font-size:16px;font-weight:700">${delta>=0?'+':''}${delta} ${unit} ${first?`(${pct>=0?'+':''}${pct}%)`:''}</div></div>
-    </div>
-    ${chartSVG(series)}
-  </div>`;
-
-  // dernières perfs
+    </div>${chartSVG(series)}</div>`;
   html+=`<div class="eyebrow">Dernières séances</div>`;
   html+=hist.slice(-6).reverse().map(h=>{
-    const b=bestSet(h.sets);
-    return `<div class="litem"><div><div class="t num">${b.weight} kg × ${b.reps}</div>
-      <div class="s">${fmtDate(h.date)} · ${h.sets.length} série${h.sets.length>1?'s':''} · 1RM≈${b.e}kg</div></div></div>`;
+    const b=h.unit==='reps'&&!h.bodyweight?bestSet(h.sets):null;
+    const qty=h.sets.reduce((n,x)=>n+x.reps,0);
+    const label=h.unit!=='reps'?`${qty} ${unitLabel(h.unit)}`:b?`${b.weight} kg × ${b.reps}`:`${qty} répétitions`;
+    return `<div class="litem"><div><div class="t num">${label}</div>
+      <div class="s">${fmtDate(h.date)} · ${h.sets.length} série${h.sets.length>1?'s':''}${b?' · 1RM≈'+b.e+'kg':''}</div></div></div>`;
   }).join('');
   el.innerHTML=html;
 }
@@ -799,14 +853,65 @@ function importData(input){const f=input.files[0];if(!f)return;
   const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);
     if(!d.sessions&&!d.templates&&!d.body)throw 0;
     if(!confirm('Remplacer toutes les données actuelles par cette sauvegarde ?'))return;
-    db=Object.assign(structuredClone(DEFAULT_DB),d);save();state.session=null;render();toast('Sauvegarde importée');
+    db=Object.assign(structuredClone(DEFAULT_DB),d);seedProgram();save();state.session=null;render();toast('Sauvegarde importée');
   }catch(e){toast('Fichier invalide');}};r.readAsText(f);input.value='';}
 
 render();
 
-/* PWA : enregistrement du service worker (mode app + hors-ligne) */
+/* PWA : mise à jour explicite, sans rechargement pendant une saisie. */
+let appRegistrationPromise=null,updateReloadRequested=false;
+let hadAppController=!!navigator.serviceWorker?.controller;
+function hasPendingAppChanges(){return hasPendingSessionChanges()||document.getElementById('sheet').classList.contains('show');}
+function showAppUpdate(){document.getElementById('app-update').hidden=false;}
+function watchAppWorker(worker){
+  if(!worker)return;
+  const check=()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)showAppUpdate();};
+  worker.addEventListener('statechange',check);check();
+}
+function registerAppWorker(){
+  if(!appRegistrationPromise){
+    appRegistrationPromise=navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+      if(reg.waiting)showAppUpdate();
+      watchAppWorker(reg.installing);
+      reg.addEventListener('updatefound',()=>watchAppWorker(reg.installing));
+      return reg;
+    }).catch(err=>{appRegistrationPromise=null;throw err;});
+  }
+  return appRegistrationPromise;
+}
+async function checkAppUpdate(manual=false){
+  if(!('serviceWorker' in navigator)){
+    if(manual)toast('Mises à jour disponibles via une adresse HTTPS');return;
+  }
+  if(navigator.onLine===false){if(manual)toast('Connecte-toi pour rechercher une mise à jour');return;}
+  try{
+    if(manual)toast('Recherche de mise à jour…');
+    const reg=await registerAppWorker();await reg.update();
+    if(reg.waiting)showAppUpdate();
+    else if(reg.installing)watchAppWorker(reg.installing);
+    else if(manual)toast('Application à jour');
+  }catch(e){if(manual)toast('Recherche impossible, réessaie avec une connexion');}
+}
+async function applyAppUpdate(){
+  if(hasPendingAppChanges()){
+    toast('Enregistre ou ferme la saisie avant la mise à jour');return;
+  }
+  try{
+    const reg=await registerAppWorker();
+    updateReloadRequested=true;
+    if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+    else window.location.reload();
+  }catch(e){updateReloadRequested=false;toast('Mise à jour impossible, réessaie');}
+}
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(updateReloadRequested&&!hasPendingAppChanges())window.location.reload();
+    else if(hadAppController)showAppUpdate();
+    hadAppController=true;
+  });
+  window.addEventListener('load',()=>checkAppUpdate());
+  window.addEventListener('online',()=>checkAppUpdate());
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAppUpdate();});
 }
 </script>
 </body>
